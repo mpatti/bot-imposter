@@ -1,29 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Bot, User, Users } from 'lucide-react';
 
-const generateRandomName = () => {
-  const adjs = ['Neon', 'Cyber', 'Dark', 'Ghost', 'Void', 'Zero', 'Retro', 'Static', 'Quantum'];
-  const nouns = ['Ninja', 'Rider', 'Wolf', 'Hawk', 'Runner', 'Spark', 'Pulse', 'Byte', 'Glitch'];
-  return `${adjs[Math.floor(Math.random() * adjs.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}${Math.floor(Math.random() * 100)}`;
-};
-
 const Lobby = ({ onCreateRoom, onJoinRoom }) => {
-  const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [mode, setMode] = useState('select'); // select, create, join
+  const [mode, setMode] = useState('select');
 
-  useEffect(() => {
-    setName(generateRandomName());
-  }, []);
-
-  const handleCreate = (e) => {
-    e.preventDefault();
-    onCreateRoom({ name, apiKey: '' });
+  const handleCreate = () => {
+    onCreateRoom({ apiKey: '' });
   };
 
   const handleJoin = (e) => {
     e.preventDefault();
-    if (roomCode.trim().length === 4) onJoinRoom({ name, code: roomCode.trim() });
+    if (roomCode.trim().length === 4) onJoinRoom({ code: roomCode.trim() });
   };
 
   return (
@@ -39,19 +27,15 @@ const Lobby = ({ onCreateRoom, onJoinRoom }) => {
           <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem', fontSize: '0.9rem' }}>How to play</h4>
           <ul style={{ paddingLeft: '1.2rem' }}>
             <li>Enter a room with friends.</li>
+            <li>You'll be assigned a random name — so will the bot.</li>
             <li>Chat naturally to identify the bot.</li>
-            <li>The bot is powered by advanced AI and will try to blend in.</li>
             <li>Vote for the player you think is the AI when time runs out!</li>
           </ul>
         </div>
         
         {mode === 'select' && (
           <div className="flex-column" style={{ gap: '1rem' }}>
-            <div className="text-center mb-2">
-              <div className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>Your alias</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>{name}</div>
-            </div>
-            <button onClick={() => { setMode('create'); handleCreate({ preventDefault: () => {} }); }} className="primary">
+            <button onClick={handleCreate} className="primary">
               <User size={20} />
               Create Room
             </button>
@@ -64,10 +48,6 @@ const Lobby = ({ onCreateRoom, onJoinRoom }) => {
 
         {mode === 'join' && (
           <form onSubmit={handleJoin} className="flex-column">
-            <div className="text-center mb-3">
-              <div className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>Your alias</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>{name}</div>
-            </div>
             <div className="mb-4">
               <input
                 type="text"

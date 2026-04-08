@@ -52,6 +52,8 @@ function App() {
       setAllPlayers([]);
       setGameResult(null);
       setIsHost(players[0]?.id === socket.id);
+      const me = players.find(p => p.id === socket.id);
+      if (me) setUserName(me.name);
       setGameState('waiting');
     });
 
@@ -75,21 +77,21 @@ function App() {
     setGameResult(null);
   };
 
-  const handleCreateRoom = ({ name, apiKey }) => {
-    setUserName(name);
+  const handleCreateRoom = ({ apiKey }) => {
     setIsHost(true);
-    socket.emit('createRoom', { name, apiKey }, ({ roomCode, players }) => {
+    socket.emit('createRoom', { apiKey }, ({ roomCode, players, assignedName }) => {
+      setUserName(assignedName);
       setRoomCode(roomCode);
       setPlayers(players);
       setGameState('waiting');
     });
   };
 
-  const handleJoinRoom = ({ name, code }) => {
-    setUserName(name);
+  const handleJoinRoom = ({ code }) => {
     setIsHost(false);
-    socket.emit('joinRoom', { name, roomCode: code.toUpperCase() }, (res) => {
+    socket.emit('joinRoom', { roomCode: code.toUpperCase() }, (res) => {
       if (res.success) {
+        setUserName(res.assignedName);
         setRoomCode(code.toUpperCase());
         setPlayers(res.players);
         setGameState('waiting');
@@ -123,6 +125,9 @@ function App() {
         <div className="container flex-center">
           <div className="glass-container fade-in text-center" style={{ width: '100%', maxWidth: '400px' }}>
             <h2>Room Code: {roomCode}</h2>
+            <div style={{ marginBottom: '1rem', color: 'var(--neon-cyan)', fontSize: '1.1rem' }}>
+              You are: <strong>{userName}</strong>
+            </div>
             <div className="mb-4">
               <h4 className="text-secondary mb-2">Players Waiting:</h4>
               {players.map((p, i) => (

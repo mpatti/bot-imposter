@@ -3,10 +3,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { getBotImposterId, simulatedPlayers, fetchBotResponse, generateBotName } from './botLogic.js';
+import { fetchBotResponse, generateResponse } from './botLogic.js';
 import { filterMessage } from './profanityFilter.js';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const PLAYER_NAMES = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey'];
 
 const app = express();
 app.use(cors());
@@ -19,27 +20,35 @@ const io = new Server(server, {
   }
 });
 
-// Room state: { [roomCode]: { state: 'waiting' | 'chat' | 'voting' | 'result', players: [], botId: string, botName: string, messages: [], apiKey: string, timer: number, votes: {} } }
 const rooms = {};
 
 const generateRoomCode = () => {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 };
 
+const shuffleArray = (arr) => {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 io.on('connection', (socket) => {
   
-  socket.on('createRoom', ({ name, apiKey }, callback) => {
+  socket.on('createRoom', ({ apiKey }, callback) => {
     const roomCode = generateRoomCode();
     socket.join(roomCode);
     
-    // Select a random bot player
-    const botIndex = Math.floor(Math.random() * simulatedPlayers.length);
-    const botPlayer = simulatedPlayers[botIndex];
+    const namePool = shuffleArray(PLAYER_NAMES);
+    const assignedName = namePool.shift();
     
     rooms[roomCode] = {
       state: 'waiting',
-      players: [{ id: socket.id, name, isHost: true }],
-      botPlayer: botPlayer,
+      players: [{ id: socket.id, name: assignedName, isHost: true }],
+      namePool,
+      botPlayer: null,
       messages: [],
       apiKey: apiKey || ANTHROPIC_API_KEY,
       timer: 60,
@@ -47,16 +56,22 @@ io.on('connection', (socket) => {
       botIntervalArgs: null
     };
     
-    callback({ roomCode, players: rooms[roomCode].players });
+    callback({ roomCode, players: rooms[roomCode].players, assignedName });
   });
 
-  socket.on('joinRoom', ({ name, roomCode }, callback) => {
-    if (rooms[roomCode] && rooms[roomCode].state === 'waiting') {
+  socket.on('joinRoom', ({ roomCode }, callback) => {
+    const room = rooms[roomCode];
+    if (room && room.state === 'waiting') {
+      if (room.namePool.length <= 1) {
+        callback({ success: false, error: "Room is full (max 4 players)." });
+        return;
+      }
       socket.join(roomCode);
-      rooms[roomCode].players.push({ id: socket.id, name, isHost: false });
+      const assignedName = room.namePool.shift();
+      room.players.push({ id: socket.id, name: assignedName, isHost: false });
       
-      io.to(roomCode).emit('roomUpdate', { players: rooms[roomCode].players });
-      callback({ success: true, players: rooms[roomCode].players });
+      io.to(roomCode).emit('roomUpdate', { players: room.players });
+      callback({ success: true, players: room.players, assignedName });
     } else {
       callback({ success: false, error: "Room not found or already in progress." });
     }
@@ -68,7 +83,12 @@ io.on('connection', (socket) => {
     
     room.state = 'chat';
     
-    // Add the bot to the visible players for the clients
+    // Assign the bot a name from the remaining pool
+    const botName = room.namePool.length > 0
+      ? room.namePool[Math.floor(Math.random() * room.namePool.length)]
+      : 'Unknown';
+    room.botPlayer = { id: 'bot-' + Math.floor(Math.random() * 99999), name: botName };
+    
     const allPlayers = [...room.players, { id: room.botPlayer.id, name: room.botPlayer.name, isHost: false }];
     
     io.to(roomCode).emit('gameStarted', { state: 'chat', allPlayers, botId: room.botPlayer.id });
@@ -129,8 +149,6 @@ io.on('connection', (socket) => {
       if (room.apiKey && room.messages.length > 0) {
         text = await fetchBotResponse(room.messages, room.apiKey, room.botPlayer.name);
       } else {
-        // use fallback if no api key
-        const { generateResponse } = await import('./botLogic.js');
         text = generateResponse();
       }
 
@@ -178,21 +196,20 @@ io.on('connection', (socket) => {
     const room = rooms[roomCode];
     if (!room) return;
 
-    // Pick a fresh bot with a new name
-    const botPlayer = {
-      id: 'p' + Math.floor(Math.random() * 9999),
-      name: generateBotName()
-    };
-
     room.state = 'waiting';
-    room.botPlayer = botPlayer;
+    room.botPlayer = null;
     room.messages = [];
     room.votes = {};
     room.botIntervalArgs = null;
     if (room.voteInterval) clearInterval(room.voteInterval);
 
-    // Mark first player as host
-    room.players.forEach((p, i) => { p.isHost = i === 0; });
+    // Reshuffle names so nobody knows who's who next round
+    const namePool = shuffleArray(PLAYER_NAMES);
+    room.players.forEach((p, i) => {
+      p.name = namePool[i];
+      p.isHost = i === 0;
+    });
+    room.namePool = namePool.slice(room.players.length);
 
     io.to(roomCode).emit('backToWaiting', { players: room.players });
   });
