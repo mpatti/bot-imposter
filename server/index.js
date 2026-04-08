@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { getBotImposterId, simulatedPlayers, fetchBotResponse, generateBotName } from './botLogic.js';
+import { filterMessage } from './profanityFilter.js';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -139,7 +140,8 @@ io.on('connection', (socket) => {
 
       setTimeout(() => {
         if (room.state !== 'chat') return;
-        const msgObj = { sender: room.botPlayer.name, text, isMe: false };
+        const cleanText = filterMessage(text);
+        const msgObj = { sender: room.botPlayer.name, text: cleanText, isMe: false };
         room.messages.push(msgObj);
         io.to(roomCode).emit('typingStop', { sender: room.botPlayer.name });
         io.to(roomCode).emit('chatMessage', msgObj);
@@ -154,7 +156,7 @@ io.on('connection', (socket) => {
     if (room && room.state === 'chat') {
       const player = room.players.find(p => p.id === socket.id);
       if (player) {
-        const msgObj = { sender: player.name, text, id: socket.id };
+        const msgObj = { sender: player.name, text: filterMessage(text), id: socket.id };
         room.messages.push(msgObj);
         io.to(roomCode).emit('chatMessage', msgObj);
       }
