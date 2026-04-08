@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bot, User, Users } from 'lucide-react';
+
+const generateRandomName = () => {
+  const adjs = ['Neon', 'Cyber', 'Dark', 'Ghost', 'Void', 'Zero', 'Retro', 'Static', 'Quantum'];
+  const nouns = ['Ninja', 'Rider', 'Wolf', 'Hawk', 'Runner', 'Spark', 'Pulse', 'Byte', 'Glitch'];
+  return `${adjs[Math.floor(Math.random() * adjs.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}${Math.floor(Math.random() * 100)}`;
+};
 
 const Lobby = ({ onCreateRoom, onJoinRoom }) => {
   const [name, setName] = useState('');
   const [apiKey, setApiKey] = useState('');
+
+  useEffect(() => {
+    setName(generateRandomName());
+  }, []);
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState('select'); // select, create, join
 
