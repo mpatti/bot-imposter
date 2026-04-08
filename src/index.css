@@ -164,6 +164,18 @@ input:focus {
   animation: fadeIn 0.4s ease-out forwards;
 }
 
+@keyframes typingBounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+.typing-dot {
+  display: inline-block;
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  animation: typingBounce 1.4s infinite;
+}
+
 /* Utility */
 .text-center { text-align: center; }
 .mb-1 { margin-bottom: 0.5rem; }

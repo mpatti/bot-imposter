@@ -125,7 +125,7 @@ function App() {
       )}
 
       {gameState === 'voting' && (
-        <VotingScreen allPlayers={allPlayers} onVote={handleVote} />
+        <VotingScreen allPlayers={allPlayers} onVote={handleVote} socket={socket} />
       )}
 
       {gameState === 'result' && (

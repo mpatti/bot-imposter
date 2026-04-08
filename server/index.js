@@ -83,6 +83,25 @@ io.on('connection', (socket) => {
         if (room.botIntervalArgs) clearTimeout(room.botIntervalArgs);
         room.state = 'voting';
         io.to(roomCode).emit('gameStateChange', 'voting');
+
+        // Start 30-second voting timer
+        let voteTime = 30;
+        const voteInterval = setInterval(() => {
+          voteTime--;
+          io.to(roomCode).emit('voteTimerUpdate', voteTime);
+          if (voteTime <= 0) {
+            clearInterval(voteInterval);
+            if (room.state === 'voting') {
+              room.state = 'result';
+              io.to(roomCode).emit('gameResult', {
+                votes: room.votes,
+                botId: room.botPlayer.id,
+                botName: room.botPlayer.name
+              });
+            }
+          }
+        }, 1000);
+        room.voteInterval = voteInterval;
       }
     }, 1000);
 
@@ -114,11 +133,19 @@ io.on('connection', (socket) => {
         text = generateResponse();
       }
 
-      const msgObj = { sender: room.botPlayer.name, text, isMe: false };
-      room.messages.push(msgObj);
-      io.to(roomCode).emit('chatMessage', msgObj);
+      // Simulate realistic typing delay based on message length
+      const typingDelay = Math.min(800 + text.length * 80, 4000);
+      io.to(roomCode).emit('typingIndicator', { sender: room.botPlayer.name });
 
-      scheduleBotMessage(roomCode);
+      setTimeout(() => {
+        if (room.state !== 'chat') return;
+        const msgObj = { sender: room.botPlayer.name, text, isMe: false };
+        room.messages.push(msgObj);
+        io.to(roomCode).emit('typingStop', { sender: room.botPlayer.name });
+        io.to(roomCode).emit('chatMessage', msgObj);
+
+        scheduleBotMessage(roomCode);
+      }, typingDelay);
     }, delay);
   };
 

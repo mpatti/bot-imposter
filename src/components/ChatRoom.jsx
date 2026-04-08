@@ -5,25 +5,36 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [timeLeft, setTimeLeft] = useState(60);
+  const [typingUsers, setTypingUsers] = useState([]);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, typingUsers]);
 
   useEffect(() => {
     const handleTimer = (time) => setTimeLeft(time);
     const handleMessage = (msg) => {
       setMessages(prev => [...prev, { ...msg, isMe: msg.id === socket.id }]);
     };
+    const handleTyping = ({ sender }) => {
+      setTypingUsers(prev => prev.includes(sender) ? prev : [...prev, sender]);
+    };
+    const handleTypingStop = ({ sender }) => {
+      setTypingUsers(prev => prev.filter(u => u !== sender));
+    };
 
     socket.on('timerUpdate', handleTimer);
     socket.on('chatMessage', handleMessage);
+    socket.on('typingIndicator', handleTyping);
+    socket.on('typingStop', handleTypingStop);
 
     return () => {
       socket.off('timerUpdate', handleTimer);
       socket.off('chatMessage', handleMessage);
+      socket.off('typingIndicator', handleTyping);
+      socket.off('typingStop', handleTypingStop);
     };
   }, [socket]);
 
@@ -83,6 +94,29 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers }) => {
               </div>
             </div>
           ))}
+
+          {/* Typing indicator */}
+          {typingUsers.length > 0 && (
+            <div style={{ alignSelf: 'flex-start', maxWidth: '80%' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px', padding: '0 4px' }}>
+                {typingUsers.join(', ')}
+              </span>
+              <div style={{
+                background: 'rgba(255,255,255,0.1)',
+                padding: '0.75rem 1rem',
+                borderRadius: '16px',
+                borderTopLeftRadius: '4px',
+                display: 'flex',
+                gap: '4px',
+                alignItems: 'center'
+              }}>
+                <span className="typing-dot" style={{ animationDelay: '0s' }}>•</span>
+                <span className="typing-dot" style={{ animationDelay: '0.2s' }}>•</span>
+                <span className="typing-dot" style={{ animationDelay: '0.4s' }}>•</span>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 

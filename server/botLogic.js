@@ -1,7 +1,14 @@
+const adjs = ['Neon', 'Cyber', 'Dark', 'Ghost', 'Void', 'Zero', 'Retro', 'Static', 'Quantum'];
+const nouns = ['Ninja', 'Rider', 'Wolf', 'Hawk', 'Runner', 'Spark', 'Pulse', 'Byte', 'Glitch'];
+
+export const generateBotName = () => {
+  return `${adjs[Math.floor(Math.random() * adjs.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}${Math.floor(Math.random() * 100)}`;
+};
+
 export const simulatedPlayers = [
-  { id: 'p1', name: 'Alex' },
-  { id: 'p2', name: 'Sam' },
-  { id: 'p3', name: 'Jordan' }
+  { id: 'p1', name: generateBotName() },
+  { id: 'p2', name: generateBotName() },
+  { id: 'p3', name: generateBotName() }
 ];
 
 export const getBotImposterId = () => {

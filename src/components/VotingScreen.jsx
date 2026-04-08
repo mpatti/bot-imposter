@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
-import { Target } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Target, Clock } from 'lucide-react';
+import io from 'socket.io-client';
 
-const VotingScreen = ({ allPlayers, onVote }) => {
+const VotingScreen = ({ allPlayers, onVote, socket }) => {
   const [selectedId, setSelectedId] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
+  const [voteTimer, setVoteTimer] = useState(30);
+
+  useEffect(() => {
+    const handleVoteTimer = (time) => setVoteTimer(time);
+    socket.on('voteTimerUpdate', handleVoteTimer);
+    return () => socket.off('voteTimerUpdate', handleVoteTimer);
+  }, [socket]);
 
   const handleSubmit = () => {
     if (selectedId) {
@@ -18,6 +26,10 @@ const VotingScreen = ({ allPlayers, onVote }) => {
         <div className="text-center mb-4">
           <Target size={64} className="mb-2" style={{ color: 'var(--neon-pink)' }} />
           <h2>Time's Up!</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: voteTimer <= 10 ? 'var(--neon-pink)' : 'var(--neon-cyan)', fontWeight: 'bold', fontSize: '1.3rem', margin: '0.75rem 0' }}>
+            <Clock size={22} />
+            <span>{voteTimer}s</span>
+          </div>
           <p className="text-secondary">
             {hasVoted ? "Waiting for other players to vote..." : "Who do you think is the Bot Imposter?"}
           </p>
