@@ -3,9 +3,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { getBotImposterId, simulatedPlayers, fetchGeminiResponse } from './botLogic.js';
+import { getBotImposterId, simulatedPlayers, fetchBotResponse } from './botLogic.js';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 const app = express();
 app.use(cors());
@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
       players: [{ id: socket.id, name, isHost: true }],
       botPlayer: botPlayer,
       messages: [],
-      apiKey: apiKey || GEMINI_API_KEY,
+      apiKey: apiKey || ANTHROPIC_API_KEY,
       timer: 60,
       votes: {},
       botIntervalArgs: null
@@ -107,7 +107,7 @@ io.on('connection', (socket) => {
 
       let text = '';
       if (room.apiKey && room.messages.length > 0) {
-        text = await fetchGeminiResponse(room.messages, room.apiKey, room.botPlayer.name);
+        text = await fetchBotResponse(room.messages, room.apiKey, room.botPlayer.name);
       } else {
         // use fallback if no api key
         const { generateResponse } = await import('./botLogic.js');
