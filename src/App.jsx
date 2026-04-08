@@ -17,6 +17,7 @@ function App() {
   const [botId, setBotId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [gameResult, setGameResult] = useState(null);
+  const [scores, setScores] = useState({ wins: 0, losses: 0 });
 
   useEffect(() => {
     socket.on('roomUpdate', ({ players }) => {
@@ -36,6 +37,14 @@ function App() {
     socket.on('gameResult', (result) => {
       setGameResult(result);
       setGameState('result');
+      
+      // Update local score
+      const userVoteId = result.votes[socket.id];
+      if (userVoteId === result.botId) {
+        setScores(prev => ({ ...prev, wins: prev.wins + 1 }));
+      } else {
+        setScores(prev => ({ ...prev, losses: prev.losses + 1 }));
+      }
     });
 
     socket.on('backToWaiting', ({ players }) => {
@@ -134,7 +143,7 @@ function App() {
       )}
 
       {gameState === 'chat' && (
-        <ChatRoom userName={userName} socket={socket} roomCode={roomCode} allPlayers={allPlayers} />
+        <ChatRoom userName={userName} socket={socket} roomCode={roomCode} allPlayers={allPlayers} scores={scores} />
       )}
 
       {gameState === 'voting' && (
@@ -142,7 +151,7 @@ function App() {
       )}
 
       {gameState === 'result' && (
-        <ResultScreen botId={gameResult.botId} botName={gameResult.botName} votes={gameResult.votes} socketId={socket.id} onPlayAgain={handlePlayAgain} onLeave={startLobby} />
+        <ResultScreen botId={gameResult.botId} botName={gameResult.botName} votes={gameResult.votes} socketId={socket.id} onPlayAgain={handlePlayAgain} onLeave={startLobby} scores={scores} />
       )}
     </div>
   );

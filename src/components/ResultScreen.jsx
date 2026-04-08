@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bot, User, RotateCcw, DoorOpen } from 'lucide-react';
 
-const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave }) => {
+const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave, scores }) => {
   const userVoteId = votes[socketId];
   const isWinner = botId === userVoteId;
 
@@ -33,7 +33,17 @@ const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave })
 
         <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
           <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>The Bot Imposter was:</div>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{botName}</div>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>{botName}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', borderTop: 'var(--glass-border)', paddingTop: '1rem' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>Session Wins</div>
+              <div style={{ fontSize: '1.2rem', color: 'var(--neon-cyan)', fontWeight: 'bold' }}>{scores.wins}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>Session Losses</div>
+              <div style={{ fontSize: '1.2rem', color: 'var(--neon-pink)', fontWeight: 'bold' }}>{scores.losses}</div>
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Clock } from 'lucide-react';
 
-const ChatRoom = ({ userName, socket, roomCode, allPlayers }) => {
+const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [timeLeft, setTimeLeft] = useState(60);
@@ -54,7 +54,10 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: 'var(--glass-border)', paddingBottom: '1rem' }}>
           <div>
             <h2 style={{ margin: 0 }}>Room {roomCode}</h2>
-            <div className="text-secondary" style={{ fontSize: '0.85rem' }}>Players: {allPlayers.map(p => p.name).join(', ')}</div>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.2rem' }}>
+              <div className="text-secondary" style={{ fontSize: '0.85rem' }}>Players: {allPlayers.map(p => p.name).join(', ')}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--neon-cyan)', fontWeight: '600' }}>{scores.wins}W - {scores.losses}L</div>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: timeLeft <= 10 ? 'var(--neon-pink)' : 'var(--neon-cyan)', fontWeight: 'bold' }}>
             <Clock size={24} />

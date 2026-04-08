@@ -31,8 +31,18 @@ const Lobby = ({ onCreateRoom, onJoinRoom }) => {
       <div className="glass-container fade-in" style={{ width: '100%', maxWidth: '400px' }}>
         <div className="text-center mb-4">
           <Bot size={64} className="mb-2" style={{ color: 'var(--neon-cyan)' }} />
-          <h1>Bot Imposter</h1>
-          <p className="text-secondary">Find the AI hiding among humans.</p>
+          <h1>Guess the Bot</h1>
+          <p className="text-secondary">One player is an AI. Can you spot which one?</p>
+        </div>
+        
+        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', borderLeft: '2px solid var(--neon-cyan)' }}>
+          <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem', fontSize: '0.9rem' }}>How to play</h4>
+          <ul style={{ paddingLeft: '1.2rem' }}>
+            <li>Enter a room with friends.</li>
+            <li>Chat naturally to identify the bot.</li>
+            <li>The bot is powered by advanced AI and will try to blend in.</li>
+            <li>Vote for the player you think is the AI when time runs out!</li>
+          </ul>
         </div>
         
         {mode === 'select' && (
