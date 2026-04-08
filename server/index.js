@@ -134,20 +134,13 @@ io.on('connection', (socket) => {
         text = generateResponse();
       }
 
-      // Simulate realistic typing delay based on message length
-      const typingDelay = Math.min(800 + text.length * 80, 4000);
-      io.to(roomCode).emit('typingIndicator', { sender: room.botPlayer.name });
+      if (room.state !== 'chat') return;
+      const cleanText = filterMessage(text);
+      const msgObj = { sender: room.botPlayer.name, text: cleanText, isMe: false };
+      room.messages.push(msgObj);
+      io.to(roomCode).emit('chatMessage', msgObj);
 
-      setTimeout(() => {
-        if (room.state !== 'chat') return;
-        const cleanText = filterMessage(text);
-        const msgObj = { sender: room.botPlayer.name, text: cleanText, isMe: false };
-        room.messages.push(msgObj);
-        io.to(roomCode).emit('typingStop', { sender: room.botPlayer.name });
-        io.to(roomCode).emit('chatMessage', msgObj);
-
-        scheduleBotMessage(roomCode);
-      }, typingDelay);
+      scheduleBotMessage(roomCode);
     }, delay);
   };
 
