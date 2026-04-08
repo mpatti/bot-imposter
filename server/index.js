@@ -1,8 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { getBotImposterId, simulatedPlayers, fetchGeminiResponse } from './botLogic.js';
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 const app = express();
 app.use(cors());
@@ -37,7 +40,7 @@ io.on('connection', (socket) => {
       players: [{ id: socket.id, name, isHost: true }],
       botPlayer: botPlayer,
       messages: [],
-      apiKey: apiKey || '',
+      apiKey: apiKey || GEMINI_API_KEY,
       timer: 60,
       votes: {},
       botIntervalArgs: null
@@ -157,7 +160,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Socket server listening on port ${PORT}`);
 });
