@@ -1,7 +1,7 @@
 import React from 'react';
-import { Bot, User, DoorOpen } from 'lucide-react';
+import { Bot, User, RotateCcw, DoorOpen } from 'lucide-react';
 
-const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain }) => {
+const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave }) => {
   const userVoteId = votes[socketId];
   const isWinner = botId === userVoteId;
 
@@ -36,10 +36,16 @@ const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain }) => {
           <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{botName}</div>
         </div>
 
-        <button onClick={onPlayAgain} className="primary" style={{ width: '100%' }}>
-          <DoorOpen size={20} />
-          Leave Room
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button onClick={onPlayAgain} className="primary" style={{ width: '100%' }}>
+            <RotateCcw size={20} />
+            Play Again
+          </button>
+          <button onClick={onLeave} style={{ width: '100%', background: 'rgba(255,255,255,0.08)' }}>
+            <DoorOpen size={20} />
+            Leave Room
+          </button>
+        </div>
       </div>
     </div>
   );

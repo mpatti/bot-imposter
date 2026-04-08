@@ -3,7 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { getBotImposterId, simulatedPlayers, fetchBotResponse } from './botLogic.js';
+import { getBotImposterId, simulatedPlayers, fetchBotResponse, generateBotName } from './botLogic.js';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -169,6 +169,7 @@ io.on('connection', (socket) => {
       // If everyone except bot voted
       if (Object.keys(room.votes).length === room.players.length) {
         room.state = 'result';
+        if (room.voteInterval) clearInterval(room.voteInterval);
         io.to(roomCode).emit('gameResult', {
           votes: room.votes,
           botId: room.botPlayer.id,
@@ -176,6 +177,29 @@ io.on('connection', (socket) => {
         });
       }
     }
+  });
+
+  socket.on('playAgain', (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    // Pick a fresh bot with a new name
+    const botPlayer = {
+      id: 'p' + Math.floor(Math.random() * 9999),
+      name: generateBotName()
+    };
+
+    room.state = 'waiting';
+    room.botPlayer = botPlayer;
+    room.messages = [];
+    room.votes = {};
+    room.botIntervalArgs = null;
+    if (room.voteInterval) clearInterval(room.voteInterval);
+
+    // Mark first player as host
+    room.players.forEach((p, i) => { p.isHost = i === 0; });
+
+    io.to(roomCode).emit('backToWaiting', { players: room.players });
   });
 
   socket.on('disconnect', () => {

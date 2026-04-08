@@ -38,11 +38,20 @@ function App() {
       setGameState('result');
     });
 
+    socket.on('backToWaiting', ({ players }) => {
+      setPlayers(players);
+      setAllPlayers([]);
+      setGameResult(null);
+      setIsHost(players[0]?.id === socket.id);
+      setGameState('waiting');
+    });
+
     return () => {
       socket.off('roomUpdate');
       socket.off('gameStarted');
       socket.off('gameStateChange');
       socket.off('gameResult');
+      socket.off('backToWaiting');
     };
   }, []);
 
@@ -91,6 +100,10 @@ function App() {
     socket.emit('submitVote', { roomCode, voteForId: selectedId });
   };
 
+  const handlePlayAgain = () => {
+    socket.emit('playAgain', roomCode);
+  };
+
   return (
     <div style={{ minHeight: '100vh', width: '100vw' }}>
       {gameState === 'lobby' && (
@@ -129,7 +142,7 @@ function App() {
       )}
 
       {gameState === 'result' && (
-        <ResultScreen botId={gameResult.botId} botName={gameResult.botName} votes={gameResult.votes} socketId={socket.id} onPlayAgain={startLobby} />
+        <ResultScreen botId={gameResult.botId} botName={gameResult.botName} votes={gameResult.votes} socketId={socket.id} onPlayAgain={handlePlayAgain} onLeave={startLobby} />
       )}
     </div>
   );
