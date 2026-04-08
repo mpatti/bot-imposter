@@ -3,7 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { fetchBotResponse, generateResponse } from './botLogic.js';
+import { fetchBotResponse, generateResponse, pickPersonality } from './botLogic.js';
 import { filterMessage } from './profanityFilter.js';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
@@ -36,6 +36,18 @@ const shuffleArray = (arr) => {
 };
 
 io.on('connection', (socket) => {
+
+  socket.on('listRooms', (callback) => {
+    const roomList = Object.entries(rooms)
+      .filter(([_, room]) => room.players.length > 0)
+      .map(([code, room]) => ({
+        code,
+        state: room.state,
+        playerCount: room.players.length,
+        observerCount: room.observers.length
+      }));
+    callback(roomList);
+  });
   
   socket.on('createRoom', ({ apiKey }, callback) => {
     const roomCode = generateRoomCode();
@@ -47,11 +59,14 @@ io.on('connection', (socket) => {
     rooms[roomCode] = {
       state: 'waiting',
       players: [{ id: socket.id, name: assignedName, isHost: true }],
+      observers: [],
       namePool,
       botPlayer: null,
       messages: [],
       apiKey: apiKey || ANTHROPIC_API_KEY,
       timer: 60,
+      currentTimeLeft: 60,
+      currentVoteTimeLeft: 30,
       votes: {},
       botIntervalArgs: null
     };
@@ -77,6 +92,35 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('joinAsObserver', ({ roomCode }, callback) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      callback({ success: false, error: "Room not found." });
+      return;
+    }
+    socket.join(roomCode);
+    room.observers.push({ id: socket.id });
+
+    const allPlayers = room.botPlayer
+      ? [...room.players, { id: room.botPlayer.id, name: room.botPlayer.name, isHost: false }]
+      : room.players;
+
+    callback({
+      success: true,
+      state: room.state,
+      messages: room.messages,
+      allPlayers,
+      players: room.players,
+      timeLeft: room.currentTimeLeft,
+      voteTimeLeft: room.currentVoteTimeLeft,
+      result: room.state === 'result' && room.botPlayer ? {
+        votes: room.votes,
+        botId: room.botPlayer.id,
+        botName: room.botPlayer.name
+      } : null
+    });
+  });
+
   socket.on('startGame', (roomCode) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -87,7 +131,8 @@ io.on('connection', (socket) => {
     const botName = room.namePool.length > 0
       ? room.namePool[Math.floor(Math.random() * room.namePool.length)]
       : 'Unknown';
-    room.botPlayer = { id: 'bot-' + Math.floor(Math.random() * 99999), name: botName };
+    const personality = pickPersonality();
+    room.botPlayer = { id: 'bot-' + Math.floor(Math.random() * 99999), name: botName, personality };
     
     const allPlayers = [...room.players, { id: room.botPlayer.id, name: room.botPlayer.name, isHost: false }];
     
@@ -95,8 +140,10 @@ io.on('connection', (socket) => {
 
     // Start timer
     let timeLeft = room.timer;
+    room.currentTimeLeft = timeLeft;
     const interval = setInterval(() => {
       timeLeft--;
+      room.currentTimeLeft = timeLeft;
       io.to(roomCode).emit('timerUpdate', timeLeft);
       
       if (timeLeft <= 0) {
@@ -107,8 +154,10 @@ io.on('connection', (socket) => {
 
         // Start 30-second voting timer
         let voteTime = 30;
+        room.currentVoteTimeLeft = voteTime;
         const voteInterval = setInterval(() => {
           voteTime--;
+          room.currentVoteTimeLeft = voteTime;
           io.to(roomCode).emit('voteTimerUpdate', voteTime);
           if (voteTime <= 0) {
             clearInterval(voteInterval);
@@ -147,7 +196,7 @@ io.on('connection', (socket) => {
 
       let text = '';
       if (room.apiKey && room.messages.length > 0) {
-        text = await fetchBotResponse(room.messages, room.apiKey, room.botPlayer.name);
+        text = await fetchBotResponse(room.messages, room.apiKey, room.botPlayer.name, room.botPlayer.personality);
       } else {
         text = generateResponse();
       }
@@ -177,6 +226,7 @@ io.on('connection', (socket) => {
   socket.on('submitVote', ({ roomCode, voteForId }) => {
     const room = rooms[roomCode];
     if (room && room.state === 'voting') {
+      if (!room.players.find(p => p.id === socket.id)) return;
       room.votes[socket.id] = voteForId;
       
       // If everyone except bot voted
@@ -203,22 +253,38 @@ io.on('connection', (socket) => {
     room.botIntervalArgs = null;
     if (room.voteInterval) clearInterval(room.voteInterval);
 
-    // Reshuffle names so nobody knows who's who next round
+    // Promote observers into the player pool
+    const maxPlayers = PLAYER_NAMES.length - 1;
+    const combined = [...room.players.map(p => ({ id: p.id }))];
+    for (const obs of room.observers) {
+      if (combined.length < maxPlayers) {
+        combined.push({ id: obs.id });
+      }
+    }
+    const promoted = new Set(room.observers.map(o => o.id));
+    room.observers = room.observers.filter(o => !combined.find(c => c.id === o.id));
+
+    // Reshuffle names for everyone
     const namePool = shuffleArray(PLAYER_NAMES);
-    room.players.forEach((p, i) => {
-      p.name = namePool[i];
-      p.isHost = i === 0;
-    });
-    room.namePool = namePool.slice(room.players.length);
+    room.players = combined.map((p, i) => ({
+      id: p.id,
+      name: namePool[i],
+      isHost: i === 0
+    }));
+    room.namePool = namePool.slice(combined.length);
 
     io.to(roomCode).emit('backToWaiting', { players: room.players });
   });
 
   socket.on('disconnect', () => {
-    // cleanup
     for (const roomCode in rooms) {
-      rooms[roomCode].players = rooms[roomCode].players.filter(p => p.id !== socket.id);
-      io.to(roomCode).emit('roomUpdate', { players: rooms[roomCode].players });
+      const room = rooms[roomCode];
+      room.players = room.players.filter(p => p.id !== socket.id);
+      room.observers = room.observers.filter(o => o.id !== socket.id);
+      io.to(roomCode).emit('roomUpdate', { players: room.players });
+      if (room.players.length === 0 && room.observers.length === 0) {
+        delete rooms[roomCode];
+      }
     }
   });
 });

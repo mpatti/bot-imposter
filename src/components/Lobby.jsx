@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
-import { Bot, User, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, User, Users, Eye } from 'lucide-react';
 
-const Lobby = ({ onCreateRoom, onJoinRoom }) => {
+const stateLabels = { waiting: 'In Lobby', chat: 'Chatting', voting: 'Voting', result: 'Results' };
+
+const Lobby = ({ onCreateRoom, onJoinRoom, onJoinAsObserver, socket }) => {
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState('select');
+  const [activeRooms, setActiveRooms] = useState([]);
+
+  useEffect(() => {
+    const fetchRooms = () => socket.emit('listRooms', setActiveRooms);
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 3000);
+    return () => clearInterval(interval);
+  }, [socket]);
 
   const handleCreate = () => {
     onCreateRoom({ apiKey: '' });
@@ -13,6 +23,8 @@ const Lobby = ({ onCreateRoom, onJoinRoom }) => {
     e.preventDefault();
     if (roomCode.trim().length === 4) onJoinRoom({ code: roomCode.trim() });
   };
+
+  const inProgressRooms = activeRooms.filter(r => r.state !== 'waiting');
 
   return (
     <div className="container flex-center">
@@ -61,6 +73,44 @@ const Lobby = ({ onCreateRoom, onJoinRoom }) => {
             <button type="submit" className="primary" disabled={roomCode.length < 4}>Join Lobby</button>
             <button type="button" onClick={() => setMode('select')} style={{ marginTop: '0.5rem', background: 'transparent' }}>Cancel</button>
           </form>
+        )}
+
+        {inProgressRooms.length > 0 && (
+          <div style={{ marginTop: '2rem', borderTop: 'var(--glass-border)', paddingTop: '1.5rem' }}>
+            <h4 className="text-secondary mb-2" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <Eye size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.4rem' }} />
+              Live Games
+            </h4>
+            <div className="flex-column" style={{ gap: '0.5rem' }}>
+              {inProgressRooms.map(room => (
+                <button
+                  key={room.code}
+                  onClick={() => onJoinAsObserver({ code: room.code })}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '0.75rem 1rem',
+                    justifyContent: 'space-between',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontWeight: 'bold', color: 'var(--neon-cyan)' }}>{room.code}</span>
+                    <span className="text-secondary">{room.playerCount} players</span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: room.state === 'chat' ? 'rgba(0,243,255,0.15)' : room.state === 'voting' ? 'rgba(242,0,137,0.15)' : 'rgba(255,255,255,0.1)',
+                      color: room.state === 'chat' ? 'var(--neon-cyan)' : room.state === 'voting' ? 'var(--neon-pink)' : 'var(--text-secondary)'
+                    }}>
+                      {stateLabels[room.state] || room.state}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Watch</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

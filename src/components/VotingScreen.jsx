@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Clock } from 'lucide-react';
-import io from 'socket.io-client';
+import { Target, Clock, Eye } from 'lucide-react';
 
-const VotingScreen = ({ allPlayers, onVote, socket }) => {
+const VotingScreen = ({ allPlayers, onVote, socket, isObserver, initialVoteTimeLeft }) => {
   const [selectedId, setSelectedId] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
-  const [voteTimer, setVoteTimer] = useState(30);
+  const [voteTimer, setVoteTimer] = useState(initialVoteTimeLeft ?? 30);
 
   useEffect(() => {
     const handleVoteTimer = (time) => setVoteTimer(time);
@@ -14,7 +13,7 @@ const VotingScreen = ({ allPlayers, onVote, socket }) => {
   }, [socket]);
 
   const handleSubmit = () => {
-    if (selectedId) {
+    if (selectedId && !isObserver) {
       onVote(selectedId);
       setHasVoted(true);
     }
@@ -23,6 +22,26 @@ const VotingScreen = ({ allPlayers, onVote, socket }) => {
   return (
     <div className="container flex-center">
       <div className="glass-container fade-in" style={{ width: '100%', maxWidth: '500px' }}>
+        {isObserver && (
+          <div style={{
+            background: 'rgba(0, 243, 255, 0.1)',
+            border: '1px solid rgba(0, 243, 255, 0.3)',
+            borderRadius: '8px',
+            padding: '0.5rem 1rem',
+            textAlign: 'center',
+            fontSize: '0.8rem',
+            color: 'var(--neon-cyan)',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem'
+          }}>
+            <Eye size={14} />
+            Observing — waiting for votes
+          </div>
+        )}
+
         <div className="text-center mb-4">
           <Target size={64} className="mb-2" style={{ color: 'var(--neon-pink)' }} />
           <h2>Time's Up!</h2>
@@ -31,11 +50,11 @@ const VotingScreen = ({ allPlayers, onVote, socket }) => {
             <span>{voteTimer}s</span>
           </div>
           <p className="text-secondary">
-            {hasVoted ? "Waiting for other players to vote..." : "Who do you think is the Bot Imposter?"}
+            {isObserver ? "Players are voting..." : hasVoted ? "Waiting for other players to vote..." : "Who do you think is the Bot Imposter?"}
           </p>
         </div>
 
-        {!hasVoted && (
+        {!isObserver && !hasVoted && (
           <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
             {allPlayers.map(player => (
               <button
@@ -66,7 +85,7 @@ const VotingScreen = ({ allPlayers, onVote, socket }) => {
           </div>
         )}
 
-        {!hasVoted && (
+        {!isObserver && !hasVoted && (
           <button 
             onClick={handleSubmit} 
             className="primary" 
