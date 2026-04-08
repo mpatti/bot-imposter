@@ -1,82 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Clock } from 'lucide-react';
-import { simulatedPlayers, generateResponse, fetchGeminiResponse } from '../gameLogic';
 
-const ChatRoom = ({ userName, apiKey, botId, onTimeUp }) => {
+const ChatRoom = ({ userName, socket, roomCode, allPlayers }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [timeLeft, setTimeLeft] = useState(60);
   const messagesEndRef = useRef(null);
-  const messagesDataRef = useRef(messages);
-
-  useEffect(() => {
-    messagesDataRef.current = messages;
-  }, [messages]);
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Timer
   useEffect(() => {
-    if (timeLeft <= 0) {
-      onTimeUp();
-      return;
-    }
-    const timerId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    return () => clearInterval(timerId);
-  }, [timeLeft, onTimeUp]);
+    const handleTimer = (time) => setTimeLeft(time);
+    const handleMessage = (msg) => {
+      setMessages(prev => [...prev, { ...msg, isMe: msg.id === socket.id }]);
+    };
 
-  // Simulated player actions
-  useEffect(() => {
-    const intervals = [];
-    
-    simulatedPlayers.forEach(player => {
-      const isBot = player.id === botId;
-      const delay = 5000 + Math.random() * 10000;
-      
-      const id = setInterval(async () => {
-        if (isBot && apiKey && messagesDataRef.current.length > 0) {
-          // If the last message was also from this bot, maybe don't spam.
-          const lastMsg = messagesDataRef.current[messagesDataRef.current.length - 1];
-          if (lastMsg.sender === player.name) return;
+    socket.on('timerUpdate', handleTimer);
+    socket.on('chatMessage', handleMessage);
 
-          const text = await fetchGeminiResponse(messagesDataRef.current, apiKey, player.name);
-          setMessages(prev => [...prev, { sender: player.name, text, isMe: false }]);
-        } else if (!isBot || !apiKey) {
-          const text = generateResponse(player.id, isBot);
-          setMessages(prev => [...prev, { sender: player.name, text, isMe: false }]);
-        }
-      }, delay);
-      intervals.push((id));
-    });
+    return () => {
+      socket.off('timerUpdate', handleTimer);
+      socket.off('chatMessage', handleMessage);
+    };
+  }, [socket]);
 
-    return () => intervals.forEach(clearInterval);
-  }, [botId, apiKey]);
-
-  const handleSend = async (e) => {
+  const handleSend = (e) => {
     e.preventDefault();
     if (!inputVal.trim()) return;
     
-    setMessages(prev => [...prev, { sender: userName, text: inputVal.trim(), isMe: true }]);
+    socket.emit('chatMessage', { roomCode, text: inputVal.trim() });
     setInputVal('');
-    
-    // Potentially trigger an immediate bot response for flavor
-    if (Math.random() > 0.6) {
-      setTimeout(async () => {
-        const randomPlayer = simulatedPlayers[Math.floor(Math.random() * simulatedPlayers.length)];
-        const isBot = randomPlayer.id === botId;
-        
-        let text = '';
-        if (isBot && apiKey) {
-           text = await fetchGeminiResponse(messagesDataRef.current, apiKey, randomPlayer.name);
-        } else {
-           text = generateResponse(randomPlayer.id, isBot);
-        }
-        setMessages(prev => [...prev, { sender: randomPlayer.name, text, isMe: false }]);
-      }, 1500 + Math.random() * 2000);
-    }
   };
 
   return (
@@ -86,8 +42,8 @@ const ChatRoom = ({ userName, apiKey, botId, onTimeUp }) => {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: 'var(--glass-border)', paddingBottom: '1rem' }}>
           <div>
-            <h2 style={{ margin: 0 }}>Lobby #404</h2>
-            <div className="text-secondary" style={{ fontSize: '0.85rem' }}>Players: {userName}, {simulatedPlayers.map(p => p.name).join(', ')}</div>
+            <h2 style={{ margin: 0 }}>Room {roomCode}</h2>
+            <div className="text-secondary" style={{ fontSize: '0.85rem' }}>Players: {allPlayers.map(p => p.name).join(', ')}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: timeLeft <= 10 ? 'var(--neon-pink)' : 'var(--neon-cyan)', fontWeight: 'bold' }}>
             <Clock size={24} />

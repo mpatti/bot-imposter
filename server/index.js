@@ -1,0 +1,163 @@
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { getBotImposterId, simulatedPlayers, fetchGeminiResponse } from './botLogic.js';
+
+const app = express();
+app.use(cors());
+
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Room state: { [roomCode]: { state: 'waiting' | 'chat' | 'voting' | 'result', players: [], botId: string, botName: string, messages: [], apiKey: string, timer: number, votes: {} } }
+const rooms = {};
+
+const generateRoomCode = () => {
+  return Math.random().toString(36).substring(2, 6).toUpperCase();
+};
+
+io.on('connection', (socket) => {
+  
+  socket.on('createRoom', ({ name, apiKey }, callback) => {
+    const roomCode = generateRoomCode();
+    socket.join(roomCode);
+    
+    // Select a random bot player
+    const botIndex = Math.floor(Math.random() * simulatedPlayers.length);
+    const botPlayer = simulatedPlayers[botIndex];
+    
+    rooms[roomCode] = {
+      state: 'waiting',
+      players: [{ id: socket.id, name, isHost: true }],
+      botPlayer: botPlayer,
+      messages: [],
+      apiKey: apiKey || '',
+      timer: 60,
+      votes: {},
+      botIntervalArgs: null
+    };
+    
+    callback({ roomCode, players: rooms[roomCode].players });
+  });
+
+  socket.on('joinRoom', ({ name, roomCode }, callback) => {
+    if (rooms[roomCode] && rooms[roomCode].state === 'waiting') {
+      socket.join(roomCode);
+      rooms[roomCode].players.push({ id: socket.id, name, isHost: false });
+      
+      io.to(roomCode).emit('roomUpdate', { players: rooms[roomCode].players });
+      callback({ success: true, players: rooms[roomCode].players });
+    } else {
+      callback({ success: false, error: "Room not found or already in progress." });
+    }
+  });
+
+  socket.on('startGame', (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    
+    room.state = 'chat';
+    
+    // Add the bot to the visible players for the clients
+    const allPlayers = [...room.players, { id: room.botPlayer.id, name: room.botPlayer.name, isHost: false }];
+    
+    io.to(roomCode).emit('gameStarted', { state: 'chat', allPlayers, botId: room.botPlayer.id });
+
+    // Start timer
+    let timeLeft = room.timer;
+    const interval = setInterval(() => {
+      timeLeft--;
+      io.to(roomCode).emit('timerUpdate', timeLeft);
+      
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        if (room.botIntervalArgs) clearTimeout(room.botIntervalArgs);
+        room.state = 'voting';
+        io.to(roomCode).emit('gameStateChange', 'voting');
+      }
+    }, 1000);
+
+    // Start bot chat logic
+    scheduleBotMessage(roomCode);
+  });
+
+  const scheduleBotMessage = (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room || room.state !== 'chat') return;
+
+    const delay = 5000 + Math.random() * 10000;
+    
+    room.botIntervalArgs = setTimeout(async () => {
+      if (room.state !== 'chat') return;
+
+      const lastMsg = room.messages[room.messages.length - 1];
+      if (lastMsg && lastMsg.sender === room.botPlayer.name) {
+        scheduleBotMessage(roomCode); // don't double message
+        return;
+      }
+
+      let text = '';
+      if (room.apiKey && room.messages.length > 0) {
+        text = await fetchGeminiResponse(room.messages, room.apiKey, room.botPlayer.name);
+      } else {
+        // use fallback if no api key
+        const { generateResponse } = await import('./botLogic.js');
+        text = generateResponse();
+      }
+
+      const msgObj = { sender: room.botPlayer.name, text, isMe: false };
+      room.messages.push(msgObj);
+      io.to(roomCode).emit('chatMessage', msgObj);
+
+      scheduleBotMessage(roomCode);
+    }, delay);
+  };
+
+  socket.on('chatMessage', ({ roomCode, text }) => {
+    const room = rooms[roomCode];
+    if (room && room.state === 'chat') {
+      const player = room.players.find(p => p.id === socket.id);
+      if (player) {
+        const msgObj = { sender: player.name, text, id: socket.id };
+        room.messages.push(msgObj);
+        io.to(roomCode).emit('chatMessage', msgObj);
+      }
+    }
+  });
+
+  socket.on('submitVote', ({ roomCode, voteForId }) => {
+    const room = rooms[roomCode];
+    if (room && room.state === 'voting') {
+      room.votes[socket.id] = voteForId;
+      
+      // If everyone except bot voted
+      if (Object.keys(room.votes).length === room.players.length) {
+        room.state = 'result';
+        io.to(roomCode).emit('gameResult', {
+          votes: room.votes,
+          botId: room.botPlayer.id,
+          botName: room.botPlayer.name
+        });
+      }
+    }
+  });
+
+  socket.on('disconnect', () => {
+    // cleanup
+    for (const roomCode in rooms) {
+      rooms[roomCode].players = rooms[roomCode].players.filter(p => p.id !== socket.id);
+      io.to(roomCode).emit('roomUpdate', { players: rooms[roomCode].players });
+    }
+  });
+});
+
+const PORT = 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Socket server listening on port ${PORT}`);
+});

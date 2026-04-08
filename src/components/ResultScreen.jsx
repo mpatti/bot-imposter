@@ -1,10 +1,9 @@
 import React from 'react';
-import { Bot, User, RefreshCw } from 'lucide-react';
-import { simulatedPlayers } from '../gameLogic';
+import { Bot, User, DoorOpen } from 'lucide-react';
 
-const ResultScreen = ({ botId, userVoteId, onPlayAgain }) => {
+const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain }) => {
+  const userVoteId = votes[socketId];
   const isWinner = botId === userVoteId;
-  const botPlayer = simulatedPlayers.find(p => p.id === botId);
 
   return (
     <div className="container flex-center">
@@ -34,12 +33,12 @@ const ResultScreen = ({ botId, userVoteId, onPlayAgain }) => {
 
         <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
           <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>The Bot Imposter was:</div>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{botPlayer?.name}</div>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{botName}</div>
         </div>
 
         <button onClick={onPlayAgain} className="primary" style={{ width: '100%' }}>
-          <RefreshCw size={20} />
-          Play Again
+          <DoorOpen size={20} />
+          Leave Room
         </button>
       </div>
     </div>
