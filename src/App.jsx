@@ -17,10 +17,11 @@ function App() {
   const [botId, setBotId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [gameResult, setGameResult] = useState(null);
-  const [scores, setScores] = useState({ wins: 0, losses: 0 });
+  const [scores, setScores] = useState({ wins: 0, losses: 0, accused: 0 });
   const [isObserver, setIsObserver] = useState(false);
   const [initialMessages, setInitialMessages] = useState([]);
-  const [initialTimeLeft, setInitialTimeLeft] = useState(60);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [initialTimeLeft, setInitialTimeLeft] = useState(90);
   const [initialVoteTimeLeft, setInitialVoteTimeLeft] = useState(30);
 
   useEffect(() => {
@@ -32,7 +33,12 @@ function App() {
       setAllPlayers(allPlayers);
       setBotId(botId);
       setInitialMessages([]);
+      setChatMessages([]);
       setGameState(state);
+    });
+
+    socket.on('chatMessage', (msg) => {
+      setChatMessages(prev => [...prev, msg]);
     });
 
     socket.on('gameStateChange', (state) => {
@@ -45,10 +51,11 @@ function App() {
 
       if (!isObserver) {
         const userVoteId = result.votes[socket.id];
+        const accusedCount = Object.values(result.votes).filter(v => v === socket.id).length;
         if (userVoteId === result.botId) {
-          setScores(prev => ({ ...prev, wins: prev.wins + 1 }));
+          setScores(prev => ({ ...prev, wins: prev.wins + 1, accused: prev.accused + accusedCount }));
         } else {
-          setScores(prev => ({ ...prev, losses: prev.losses + 1 }));
+          setScores(prev => ({ ...prev, losses: prev.losses + 1, accused: prev.accused + accusedCount }));
         }
       }
     });
@@ -58,6 +65,7 @@ function App() {
       setAllPlayers([]);
       setGameResult(null);
       setInitialMessages([]);
+      setChatMessages([]);
       setIsHost(players[0]?.id === socket.id);
       const me = players.find(p => p.id === socket.id);
       if (me) {
@@ -70,6 +78,7 @@ function App() {
     return () => {
       socket.off('roomUpdate');
       socket.off('gameStarted');
+      socket.off('chatMessage');
       socket.off('gameStateChange');
       socket.off('gameResult');
       socket.off('backToWaiting');
@@ -87,6 +96,7 @@ function App() {
     setGameResult(null);
     setIsObserver(false);
     setInitialMessages([]);
+    setChatMessages([]);
   };
 
   const handleCreateRoom = ({ apiKey }) => {
@@ -124,7 +134,8 @@ function App() {
       setPlayers(res.players);
       setAllPlayers(res.allPlayers);
       setInitialMessages(res.messages || []);
-      setInitialTimeLeft(res.timeLeft ?? 60);
+      setChatMessages(res.messages || []);
+      setInitialTimeLeft(res.timeLeft ?? 90);
       setInitialVoteTimeLeft(res.voteTimeLeft ?? 30);
       if (res.result) setGameResult(res.result);
       setGameState(res.state);
@@ -220,6 +231,7 @@ function App() {
           socket={socket}
           isObserver={isObserver}
           initialVoteTimeLeft={initialVoteTimeLeft}
+          chatMessages={chatMessages}
         />
       )}
 
@@ -233,6 +245,7 @@ function App() {
           onLeave={startLobby}
           scores={scores}
           isObserver={isObserver}
+          allPlayers={allPlayers}
         />
       )}
     </div>

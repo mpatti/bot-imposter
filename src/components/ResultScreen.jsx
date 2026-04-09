@@ -1,9 +1,20 @@
 import React from 'react';
-import { Bot, User, RotateCcw, DoorOpen, Eye } from 'lucide-react';
+import { Bot, User, RotateCcw, DoorOpen, Eye, Crosshair } from 'lucide-react';
 
-const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave, scores, isObserver }) => {
+const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave, scores, isObserver, allPlayers }) => {
   const userVoteId = votes[socketId];
   const isWinner = !isObserver && botId === userVoteId;
+  const accusedThisRound = !isObserver ? Object.values(votes).filter(v => v === socketId).length : 0;
+
+  const voteTally = {};
+  for (const votedFor of Object.values(votes)) {
+    voteTally[votedFor] = (voteTally[votedFor] || 0) + 1;
+  }
+
+  const playerName = (id) => {
+    const p = (allPlayers || []).find(p => p.id === id);
+    return p ? p.name : id;
+  };
 
   return (
     <div className="container flex-center">
@@ -53,18 +64,94 @@ const ResultScreen = ({ botId, botName, votes, socketId, onPlayAgain, onLeave, s
           </div>
         )}
 
-        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1rem' }}>
           <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>The Bot Imposter was:</div>
           <div style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>{botName}</div>
+
+          {!isObserver && accusedThisRound > 0 && (
+            <div style={{
+              background: 'rgba(242, 0, 137, 0.1)',
+              borderRadius: '8px',
+              padding: '0.5rem 0.75rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              fontSize: '0.85rem',
+              color: 'var(--neon-pink)',
+            }}>
+              <Crosshair size={14} />
+              {accusedThisRound} player{accusedThisRound > 1 ? 's' : ''} thought YOU were the bot! +{accusedThisRound} pts
+            </div>
+          )}
+
+          {/* Per-player results */}
+          {allPlayers && allPlayers.length > 0 && Object.keys(votes).length > 0 && (
+            <div style={{ borderTop: 'var(--glass-border)', paddingTop: '0.75rem', marginBottom: '0.75rem' }}>
+              <div className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Player Results</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {allPlayers.filter(p => p.id !== botId).map(p => {
+                  const theirVote = votes[p.id];
+                  const gotItRight = theirVote === botId;
+                  const votedForName = playerName(theirVote);
+                  const isMe = p.id === socketId;
+                  const accusedCount = Object.values(votes).filter(v => v === p.id).length;
+                  return (
+                    <div key={p.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.4rem 0.6rem',
+                      borderRadius: '6px',
+                      background: gotItRight ? 'rgba(0, 243, 255, 0.08)' : 'rgba(242, 0, 137, 0.05)',
+                      fontSize: '0.85rem',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1rem' }}>{gotItRight ? '✓' : '✗'}</span>
+                        <div>
+                          <div style={{ color: 'var(--text-primary)', fontWeight: isMe ? '700' : '400' }}>
+                            {p.name}{isMe && !isObserver ? ' (you)' : ''}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                            voted {votedForName}{theirVote === botId ? ' 🤖' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {accusedCount > 0 && (
+                          <div style={{ fontSize: '0.7rem', color: '#ff8c00' }}>
+                            +{accusedCount} accused
+                          </div>
+                        )}
+                        <div style={{
+                          fontSize: '0.7rem',
+                          color: gotItRight ? 'var(--neon-cyan)' : 'var(--neon-pink)',
+                          fontWeight: '600',
+                        }}>
+                          {gotItRight ? 'Correct!' : 'Wrong'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {!isObserver && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', borderTop: 'var(--glass-border)', paddingTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', borderTop: 'var(--glass-border)', paddingTop: '0.75rem' }}>
               <div style={{ textAlign: 'center' }}>
-                <div className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>Session Wins</div>
-                <div style={{ fontSize: '1.2rem', color: 'var(--neon-cyan)', fontWeight: 'bold' }}>{scores.wins}</div>
+                <div className="text-secondary" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>Wins</div>
+                <div style={{ fontSize: '1.1rem', color: 'var(--neon-cyan)', fontWeight: 'bold' }}>{scores.wins}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>Session Losses</div>
-                <div style={{ fontSize: '1.2rem', color: 'var(--neon-pink)', fontWeight: 'bold' }}>{scores.losses}</div>
+                <div className="text-secondary" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>Losses</div>
+                <div style={{ fontSize: '1.1rem', color: 'var(--neon-pink)', fontWeight: 'bold' }}>{scores.losses}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div className="text-secondary" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>Accused</div>
+                <div style={{ fontSize: '1.1rem', color: '#ff8c00', fontWeight: 'bold' }}>{scores.accused}</div>
               </div>
             </div>
           )}

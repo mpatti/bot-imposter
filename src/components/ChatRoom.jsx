@@ -6,7 +6,7 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
     (initialMessages || []).map(msg => ({ ...msg, isMe: msg.id === socket.id }))
   );
   const [inputVal, setInputVal] = useState('');
-  const [timeLeft, setTimeLeft] = useState(initialTimeLeft ?? 60);
+  const [timeLeft, setTimeLeft] = useState(initialTimeLeft ?? 90);
   const [typingUsers, setTypingUsers] = useState([]);
   const messagesEndRef = useRef(null);
 
@@ -108,7 +108,7 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.1rem', whiteSpace: 'nowrap' }}>Room {roomCode}</h2>
               {!isObserver && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--neon-cyan)', fontWeight: '600', whiteSpace: 'nowrap' }}>{scores.wins}W-{scores.losses}L</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--neon-cyan)', fontWeight: '600', whiteSpace: 'nowrap' }}>{scores.wins}W {scores.losses}L {scores.accused}A</span>
               )}
             </div>
             <div className="text-secondary" style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

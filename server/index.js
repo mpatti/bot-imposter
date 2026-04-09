@@ -64,8 +64,8 @@ io.on('connection', (socket) => {
       botPlayer: null,
       messages: [],
       apiKey: apiKey || ANTHROPIC_API_KEY,
-      timer: 60,
-      currentTimeLeft: 60,
+      timer: 90,
+      currentTimeLeft: 90,
       currentVoteTimeLeft: 30,
       votes: {},
       botIntervalArgs: null
