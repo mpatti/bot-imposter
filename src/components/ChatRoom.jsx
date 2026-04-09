@@ -9,10 +9,27 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
   const [timeLeft, setTimeLeft] = useState(initialTimeLeft ?? 90);
   const [typingUsers, setTypingUsers] = useState([]);
   const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
+
+  // Handle mobile viewport resize (keyboard open/close)
+  useEffect(() => {
+    const onResize = () => {
+      if (containerRef.current) {
+        containerRef.current.style.height = `${window.innerHeight}px`;
+      }
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   useEffect(() => {
     const handleTimer = (time) => setTimeLeft(time);
@@ -48,19 +65,22 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
   };
 
   return (
-    <div style={{
-      height: '100vh',
-      height: '100dvh',
-      width: '100%',
-      maxWidth: '800px',
-      margin: '0 auto',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '0.5rem',
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        padding: 'env(safe-area-inset-top, 0.25rem) 0.25rem env(safe-area-inset-bottom, 0.25rem)',
+      }}
+    >
       <div style={{
-        flex: 1,
-        minHeight: 0,
+        width: '100%',
+        maxWidth: '800px',
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--glass-bg)',
@@ -69,67 +89,50 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
         WebkitBackdropFilter: 'blur(8px)',
         border: 'var(--glass-border)',
         borderRadius: '12px',
-        padding: '0.75rem',
         overflow: 'hidden',
       }}>
 
-        {isObserver && (
-          <div style={{
-            background: 'rgba(0, 243, 255, 0.1)',
-            border: '1px solid rgba(0, 243, 255, 0.3)',
-            borderRadius: '8px',
-            padding: '0.4rem 0.75rem',
-            textAlign: 'center',
-            fontSize: '0.75rem',
-            color: 'var(--neon-cyan)',
-            marginBottom: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.4rem',
-            flexShrink: 0,
-          }}>
-            <Eye size={12} />
-            Observing — you'll join the next round
-          </div>
-        )}
-        
-        {/* Header */}
+        {/* Header — always pinned at top */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          paddingBottom: '0.5rem',
-          marginBottom: '0.5rem',
+          padding: '0.6rem 0.75rem',
           borderBottom: 'var(--glass-border)',
+          background: 'rgba(10, 10, 15, 0.6)',
           flexShrink: 0,
         }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.1rem', whiteSpace: 'nowrap' }}>Room {roomCode}</h2>
+              <span style={{ fontWeight: '700', fontSize: '1rem', whiteSpace: 'nowrap' }}>{roomCode}</span>
               {!isObserver && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--neon-cyan)', fontWeight: '600', whiteSpace: 'nowrap' }}>{scores.wins}W {scores.losses}L {scores.accused}A</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--neon-cyan)', fontWeight: '600', whiteSpace: 'nowrap' }}>{scores.wins}W {scores.losses}L {scores.accused}A</span>
+              )}
+              {isObserver && (
+                <span style={{ fontSize: '0.65rem', color: 'var(--neon-cyan)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <Eye size={10} /> Watching
+                </span>
               )}
             </div>
-            <div className="text-secondary" style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="text-secondary" style={{ fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {allPlayers.map(p => p.name).join(', ')}
             </div>
           </div>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.3rem',
+            gap: '0.25rem',
             color: timeLeft <= 10 ? 'var(--neon-pink)' : 'var(--neon-cyan)',
             fontWeight: 'bold',
             flexShrink: 0,
             marginLeft: '0.5rem',
           }}>
-            <Clock size={18} />
+            <Clock size={16} />
             <span style={{ fontSize: '1.1rem', minWidth: '2ch', textAlign: 'center' }}>{timeLeft}</span>
           </div>
         </div>
 
-        {/* Messages */}
+        {/* Messages — scrollable */}
         <div style={{
           flex: 1,
           minHeight: 0,
@@ -137,7 +140,7 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
           display: 'flex',
           flexDirection: 'column',
           gap: '0.4rem',
-          paddingRight: '0.25rem',
+          padding: '0.5rem 0.5rem 0.5rem 0.75rem',
           WebkitOverflowScrolling: 'touch',
         }}>
           {messages.length === 0 && (
@@ -196,9 +199,16 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
+        {/* Input — always pinned at bottom */}
         {!isObserver && (
-          <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexShrink: 0 }}>
+          <form onSubmit={handleSend} style={{
+            display: 'flex',
+            gap: '0.35rem',
+            padding: '0.5rem 0.5rem',
+            borderTop: 'var(--glass-border)',
+            background: 'rgba(10, 10, 15, 0.6)',
+            flexShrink: 0,
+          }}>
             <input 
               type="text" 
               value={inputVal} 
@@ -206,9 +216,9 @@ const ChatRoom = ({ userName, socket, roomCode, allPlayers, scores, isObserver, 
               placeholder="Type a message..." 
               autoComplete="off"
               autoFocus
-              style={{ padding: '0.6rem 0.75rem', fontSize: '0.9rem' }}
+              style={{ flex: 1, minWidth: 0, padding: '0.6rem 0.75rem', fontSize: '0.9rem' }}
             />
-            <button type="submit" className="primary" style={{ padding: '0 1rem', flexShrink: 0 }}>
+            <button type="submit" className="primary" style={{ padding: '0 0.75rem', flexShrink: 0 }}>
               <Send size={18} />
             </button>
           </form>
