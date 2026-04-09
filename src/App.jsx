@@ -161,7 +161,7 @@ function App() {
   ) : null;
 
   return (
-    <div style={{ minHeight: '100vh', width: '100vw' }}>
+    <div style={{ minHeight: '100vh', minHeight: '100dvh', width: '100vw' }}>
       {gameState === 'lobby' && (
         <Lobby
           onCreateRoom={handleCreateRoom}
